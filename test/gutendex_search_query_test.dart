@@ -11,6 +11,21 @@ void main() {
     );
   });
 
+  test('matches comma and non-comma author name formats', () {
+    expect(
+      normalizeGutendexAuthorName('Baum, L. Frank'),
+      normalizeGutendexAuthorName('L. Frank Baum'),
+    );
+    expect(
+      normalizeGutendexAuthorName('Shakespeare, William'),
+      normalizeGutendexAuthorName('William Shakespeare'),
+    );
+    expect(
+      normalizeGutendexAuthorName('William Shakespeare'),
+      isNot(normalizeGutendexAuthorName('William Wordsworth')),
+    );
+  });
+
   test('normalizes author names in generated Gutendex URLs', () {
     final uri = Uri.parse(gutendexBooksUrl(search: 'Ostrander, Isabel'));
     expect(uri.queryParameters['search'], 'Isabel Ostrander');

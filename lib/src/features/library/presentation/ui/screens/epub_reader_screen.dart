@@ -41,6 +41,7 @@ class _EpubReaderScreenState extends State<EpubReaderScreen> {
   int _speechBaseOffset = 0;
   bool _isSpeaking = false;
   bool _isPaused = false;
+  double _readingProgress = 0;
   final Stopwatch _readingSession = Stopwatch();
   late final Future<Map<String, dynamic>> _settings = _loadSettings();
 
@@ -280,6 +281,14 @@ class _EpubReaderScreenState extends State<EpubReaderScreen> {
                 readerAnnotationRepository:
                     PersistentReaderAnnotationRepository(widget.bookId),
                 paginationCallback: (pagination) {
+                  final nextProgress = (pagination.percent as num)
+                      .toDouble()
+                      .clamp(0.0, 100.0)
+                      .toDouble();
+                  if (mounted &&
+                      (nextProgress - _readingProgress).abs() >= 0.5) {
+                    setState(() => _readingProgress = nextProgress);
+                  }
                   unawaited(
                     ReadingShelf.updateProgress(
                       id: widget.bookId,
@@ -304,10 +313,63 @@ class _EpubReaderScreenState extends State<EpubReaderScreen> {
               SafeArea(
                 child: Align(
                   alignment: Alignment.topRight,
-                  child: IconButton(
-                    tooltip: 'Reader tools',
-                    onPressed: _showReaderTools,
-                    icon: const Icon(Icons.tune),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 8),
+                    child: Material(
+                      color: Theme.of(context).colorScheme.surface.withOpacity(.92),
+                      elevation: 2,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: 'Reader settings and appearance',
+                        onPressed: _showReaderTools,
+                        icon: const Icon(Icons.tune),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                    child: Material(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withOpacity(.94),
+                      elevation: 3,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 9, 14, 10),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.menu_book_outlined, size: 17),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Reading progress',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                Text('${_readingProgress.round()}%'),
+                              ],
+                            ),
+                            const SizedBox(height: 7),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: LinearProgressIndicator(
+                                value: _readingProgress / 100,
+                                minHeight: 4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

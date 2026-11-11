@@ -268,8 +268,15 @@ class _SectionBookListState extends ConsumerState<_SectionBookList>
                   loading: () => const LoadingWidget(),
                   data: (data) {
                     final books = data.books;
-                    if (_bookCount.value == 0) {
-                      _bookCount.value = books.length;
+                    if (_bookCount.value != books.length) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _bookCount.value = books.length;
+                      });
+                    }
+                    if (books.isEmpty) {
+                      return const Center(
+                        child: Text('No downloadable EPUBs in this shelf yet.'),
+                      );
                     }
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 15.0),
@@ -291,11 +298,27 @@ class _SectionBookListState extends ConsumerState<_SectionBookList>
                     );
                   },
                   error: (error, _) {
-                    return MyErrorWidget(
-                      message: error.toString(),
-                      refreshCallBack: () {
-                        _fetch();
-                      },
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.cloud_off_outlined, size: 28),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'This shelf could not be refreshed.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            TextButton.icon(
+                              onPressed: _fetch,
+                              icon: const Icon(Icons.refresh, size: 18),
+                              label: const Text('Try again'),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),

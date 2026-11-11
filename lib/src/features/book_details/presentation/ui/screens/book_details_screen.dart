@@ -380,13 +380,11 @@ class _MoreBooksFromAuthorState extends ConsumerState<_MoreBooksFromAuthor> {
   @override
   Widget build(BuildContext context) {
     final authorName = widget.entry.author?.name?.t ?? '';
-    final normalizedAuthor =
-        normalizeGutendexSearchQuery(authorName).toLowerCase();
+    final normalizedAuthor = normalizeGutendexAuthorName(authorName);
     final cachedEntries = BookRepository.findCachedEntries(authorName)
         .where(
           (entry) =>
-              normalizeGutendexSearchQuery(entry.author?.name?.t ?? '')
-                  .toLowerCase() ==
+              normalizeGutendexAuthorName(entry.author?.name?.t ?? '') ==
               normalizedAuthor,
         )
         .where((entry) => entry.id?.t != widget.entry.id?.t)
@@ -411,7 +409,13 @@ class _MoreBooksFromAuthorState extends ConsumerState<_MoreBooksFromAuthor> {
             final List<Entry> remoteEntries = related.feed?.entry ?? [];
             for (final entry in remoteEntries) {
               final id = entry.id?.t;
-              if (id != null && id != widget.entry.id?.t) {
+              final sameAuthor = normalizeGutendexAuthorName(
+                    entry.author?.name?.t ?? '',
+                  ) ==
+                  normalizedAuthor;
+              if (id != null &&
+                  id != widget.entry.id?.t &&
+                  sameAuthor) {
                 entriesById[id] = entry;
               }
             }
@@ -464,3 +468,4 @@ class _MoreBooksFromAuthorState extends ConsumerState<_MoreBooksFromAuthor> {
     );
   }
 }
+

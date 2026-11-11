@@ -140,6 +140,50 @@ void main() {
     expect(statistics['streakDays'], greaterThanOrEqualTo(1));
   });
 
+  test('does not inflate PDF pages read when moving backwards and forwards',
+      () async {
+    await ReadingShelf.importBook(
+      id: 'pdf-repeat',
+      title: 'PDF',
+      path: 'not-a-real-file',
+      format: 'pdf',
+    );
+
+    await ReadingShelf.updatePdfPage(id: 'pdf-repeat', page: 5);
+    await ReadingShelf.updatePdfPage(id: 'pdf-repeat', page: 2);
+    await ReadingShelf.updatePdfPage(id: 'pdf-repeat', page: 5);
+    await ReadingShelf.updatePdfPage(id: 'pdf-repeat', page: 8);
+
+    final books = await ReadingShelf.getRecent();
+    expect(books.single['pagesRead'], 7);
+    expect(books.single['page'], 8);
+  });
+
+  test('records reading days from sessions, not only book-open dates',
+      () async {
+    await ReadingShelf.record(
+      id: 'daily-book',
+      title: 'Daily book',
+      author: 'Author',
+      cover: '',
+      url: '',
+    );
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+
+    await ReadingShelf.addReadingTime(
+      id: 'daily-book',
+      seconds: 300,
+      now: yesterday,
+    );
+
+    final book = (await ReadingShelf.getRecent()).single;
+    expect(book['readingDays'], contains(
+      '${yesterday.year.toString().padLeft(4, '0')}-'
+      '${yesterday.month.toString().padLeft(2, '0')}-'
+      '${yesterday.day.toString().padLeft(2, '0')}',
+    ));
+  });
+
   test('saves and restores the current PDF page', () async {
     await ReadingShelf.importBook(
       id: 'pdf-1',
@@ -151,6 +195,22 @@ void main() {
 
     final books = await ReadingShelf.getRecent();
     expect(books.single['page'], 8);
+  });
+
+  test('does not silently discard older library items after 100 entries',
+      () async {
+    for (var index = 0; index < 105; index++) {
+      await ReadingShelf.importBook(
+        id: 'import-$index',
+        title: 'Book $index',
+        path: 'not-a-real-file-$index',
+        format: 'epub',
+      );
+    }
+
+    final books = await ReadingShelf.getRecent();
+    expect(books, hasLength(105));
+    expect(books.any((book) => book['id'] == 'import-0'), isTrue);
   });
 
   test('clearing reading history preserves imported books', () async {

@@ -71,7 +71,7 @@ class ReadingShelf {
       if (path != null) 'path': path,
       if (previous?['position'] != null) 'position': previous!['position'],
     });
-    await prefs.setString(_key, jsonEncode(items.take(100).toList()));
+    await prefs.setString(_key, jsonEncode(items));
   }
 
   static Future<void> importBook({
@@ -102,7 +102,7 @@ class ReadingShelf {
       'readingSeconds': 0,
       'pagesRead': 0,
     });
-    await prefs.setString(_key, jsonEncode(items.take(100).toList()));
+    await prefs.setString(_key, jsonEncode(items));
   }
 
   static Future<void> updateProgress({
@@ -128,14 +128,21 @@ class ReadingShelf {
     final items = await getRecent();
     final index = items.indexWhere((item) => item['id'] == id);
     if (index == -1) return;
+    final safePage = page < 1 ? 1 : page;
     final previousPage = (items[index]['page'] as num?)?.toInt() ?? 1;
-    items[index]['page'] = page < 1 ? 1 : page;
-    if (page > previousPage) {
-      items[index]['pagesRead'] =
-          ((items[index]['pagesRead'] as num?)?.toInt() ?? 0) +
-              page -
-              previousPage;
-    }
+    final highestPageSeen =
+        (items[index]['highestPageSeen'] as num?)?.toInt() ?? previousPage;
+    final highestPage = safePage > highestPageSeen ? safePage : highestPageSeen;
+
+    // Count progress to the furthest page reached, not every forward movement.
+    // Otherwise paging backwards and forwards repeatedly inflates the statistic.
+    final previousPagesRead =
+        (items[index]['pagesRead'] as num?)?.toInt() ?? 0;
+    items[index]['page'] = safePage;
+    items[index]['highestPageSeen'] = highestPage;
+    items[index]['pagesRead'] = previousPagesRead > highestPage - 1
+        ? previousPagesRead
+        : highestPage - 1;
     await prefs.setString(_key, jsonEncode(items));
   }
 
@@ -241,13 +248,19 @@ class ReadingShelf {
     final preferences = await SharedPreferences.getInstance();
     final books = await getRecent();
     final index = books.indexWhere((book) => book['id'] == id);
+    final activityDate = now ?? DateTime.now();
+    final day = _dayKey(activityDate);
     if (index >= 0) {
       books[index]['readingSeconds'] =
           ((books[index]['readingSeconds'] as num?)?.toInt() ?? 0) + seconds;
+      final savedDays = (books[index]['readingDays'] as List? ?? [])
+          .whereType<String>()
+          .toSet();
+      savedDays.add(day);
+      books[index]['readingDays'] = savedDays.toList();
       await preferences.setString(_key, jsonEncode(books));
     }
     final activity = _readActivity(preferences.getString(_readingTimeKey));
-    final day = _dayKey(now ?? DateTime.now());
     activity[day] = (activity[day] ?? 0) + seconds;
     await preferences.setString(_readingTimeKey, jsonEncode(activity));
   }

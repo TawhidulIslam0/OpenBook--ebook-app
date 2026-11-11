@@ -37,3 +37,48 @@ Gradle cannot clean files locked by Windows.
 The Riverpod generated notifier output was updated to match its source; code
 generation itself could not be verified because the installed Dart SDK lacks
 the `frontend_server.dart.snapshot` required by the current build-runner setup.
+
+
+## Follow-up code review (2026-11-10)
+
+The supplied project already contains a substantial feature set. This pass
+kept its existing architecture and UI, and corrected three data-integrity
+problems in the personal shelf/statistics layer:
+
+- **Library item loss:** the shelf previously truncated its persisted records
+  to the newest 100 entries. Since imported books and reading history share
+  this store, adding another book could silently remove an older imported
+  book's library record. The artificial cap is removed.
+- **Inflated PDF page totals:** moving backwards and then forwards counted the
+  same pages repeatedly. The app now records the furthest page reached and
+  uses that high-water mark for the page total.
+- **Missing reading days:** a book's reading-day list was updated when it was
+  opened, but not when a later reading session ended. Reading sessions now
+  add their actual session date to the book's reading-day history.
+
+Regression tests were added for all three behaviors, including a 105-book
+shelf. The tests are included in the project but could not be executed in this
+editing environment because Flutter and Dart are not installed here. Run
+`flutter test` and `flutter analyze` locally before release.
+
+## Recommended next features
+
+Prioritized additions that would make OpenLeaf more complete:
+
+1. **Backup and restore** — export the shelf, collections, goals, statistics,
+   annotations, and optionally imported/downloaded files to a user-selected
+   archive; validate the archive before restoring.
+2. **Reading reminders** — optional local notifications at user-selected
+   days/times, with a clear off switch and no account requirement.
+3. **Better PDF validation and navigation** — parse PDFs before import,
+   expose page search/jump, and make page-count/statistics semantics explicit.
+4. **Dictionary and vocabulary tools** — look up selected words, save them to
+   a personal vocabulary list, and revisit them later.
+5. **Reading goals and insights** — activity calendar, per-book time, average
+   daily reading, and a clear distinction between pages reached and pages
+   actually read.
+6. **Library management** — sort/filter by title, author, status, format, and
+   collection; batch selection and cleanup of cached files.
+
+The app currently remains a free, local-first reader with no ads, purchases,
+subscriptions, paywalls, or seeded demo books.

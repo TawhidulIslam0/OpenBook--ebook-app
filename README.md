@@ -34,3 +34,18 @@ private imported copy.
 5. Run `flutter run`.
 
 The app uses Project Gutenberg's public-domain catalog via Gutendex. Catalog availability and EPUB formats vary by title. Reading history, imported books, cached EPUBs, reader preferences, and annotations are stored locally on the device. Imported files are copied into app-managed storage; removing an imported book from the library deletes that copy.
+
+
+## OpenLeaf 3.0 update
+
+This update focuses on reliable catalog discovery and a cleaner reading experience:
+
+- Genre requests are queued with a maximum of three simultaneous catalog requests.
+- Catalog requests use a shorter per-attempt timeout and retry transient network/server failures once.
+- Previously loaded category data remains available when a refresh fails (stale-while-error).
+- Author recommendations now normalize author names and filter search results to the exact author, excluding the current book.
+- The EPUB reader shows a compact reading-progress indicator and has a clearer settings control.
+- Removed the floating Logman debug overlay from the main app experience.
+- Version updated to 3.0.0+20.
+
+Run `flutter pub get`, `flutter test`, `flutter analyze`, and `flutter run` after extracting the project.

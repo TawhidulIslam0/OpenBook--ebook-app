@@ -1,7 +1,7 @@
 name: flutter_ebook_app
 description: OpenBook - a personal digital library and ebook reader
 
-version: 2.0.0+19
+version: 3.0.0+20
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

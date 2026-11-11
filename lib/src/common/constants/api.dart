@@ -12,6 +12,20 @@ String normalizeGutendexSearchQuery(String query) {
   return '$givenNames $surname';
 }
 
+
+/// Produces a stable author key for matching catalog results. It handles both
+/// `Surname, Given names` and `Given names Surname` catalog representations.
+String normalizeGutendexAuthorName(String value) {
+  final normalized = normalizeGutendexSearchQuery(value)
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList()
+    ..sort();
+  return normalized.join(' ');
+}
+
 String gutendexBooksUrl({
   String? sort,
   String? topic,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -34,6 +35,9 @@ abstract class BookRepository {
   static const _maximumCachedFeeds = 50;
   static final Map<String, _CachedBookFeed> _feedCache = {};
   static final Map<String, Future<BookRepositoryData>> _pendingRequests = {};
+  static final List<Completer<void>> _requestWaiters = [];
+  static int _activeRequests = 0;
+  static const int _maximumConcurrentRequests = 3;
 
   final Dio httpClient;
 
@@ -58,10 +62,11 @@ abstract class BookRepository {
   }
 
   Future<BookRepositoryData> getCategory(String url) async {
-    final cached = _feedCache.remove(url);
+    final cached = _feedCache[url];
     if (cached != null &&
         DateTime.now().difference(cached.cachedAt) < _cacheDuration) {
-      _feedCache[url] = cached;
+      // Keep the original insertion order stable; cache hits should not
+      // evict useful genre feeds simply because another category was opened.
       return cached.data;
     }
 
@@ -74,6 +79,11 @@ abstract class BookRepository {
     _pendingRequests[url] = request;
     try {
       final result = await request;
+      if (result.feed == null && cached != null) {
+        // Stale-while-error: a temporary catalog outage must not blank a
+        // category that was successfully loaded before.
+        return cached.data;
+      }
       if (result.feed != null) {
         _feedCache[url] = _CachedBookFeed(result, DateTime.now());
         while (_feedCache.length > _maximumCachedFeeds) {
@@ -89,6 +99,43 @@ abstract class BookRepository {
   }
 
   Future<BookRepositoryData> _fetchCategory(String url) async {
+    await _acquireRequestSlot();
+    try {
+      return await _fetchCategoryWithRetry(url);
+    } finally {
+      _releaseRequestSlot();
+    }
+  }
+
+  static Future<void> _acquireRequestSlot() async {
+    if (_activeRequests >= _maximumConcurrentRequests) {
+      final waiter = Completer<void>();
+      _requestWaiters.add(waiter);
+      await waiter.future;
+      // The released slot is transferred directly to this waiter.
+      return;
+    }
+    _activeRequests++;
+  }
+
+  static void _releaseRequestSlot() {
+    if (_requestWaiters.isNotEmpty) {
+      _requestWaiters.removeAt(0).complete();
+      return;
+    }
+    _activeRequests--;
+  }
+
+  void _configureTimeouts() {
+    httpClient.options = httpClient.options.copyWith(
+      connectTimeout: const Duration(seconds: 12),
+      sendTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(seconds: 12),
+    );
+  }
+
+  Future<BookRepositoryData> _fetchCategoryWithRetry(String url) async {
+    _configureTimeouts();
     try {
       final res = await httpClient.get(url);
       final Object? decoded =
@@ -124,6 +171,40 @@ abstract class BookRepository {
         failure: null,
       );
     } on DioException catch (error, stackTrace) {
+      final retryable = error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.connectionError ||
+          (error.response?.statusCode != null &&
+              (error.response!.statusCode! >= 500 ||
+                  error.response!.statusCode == 429));
+      if (retryable) {
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+        try {
+          _configureTimeouts();
+          final retry = await httpClient.get(url);
+          final Object? decoded = retry.data is String
+              ? jsonDecode(retry.data as String)
+              : retry.data;
+          if (decoded is Map && decoded['results'] is List) {
+            final entries = (decoded['results'] as List)
+                .whereType<Map>()
+                .map((book) => Map<String, dynamic>.from(book))
+                .where((book) {
+                  final formats = book['formats'];
+                  return formats is Map &&
+                      formats['application/epub+zip'] is String;
+                })
+                .map(_toEntry)
+                .toList();
+            return (
+              feed: CategoryFeed(feed: Feed(link: _genreLinks(), entry: entries)),
+              failure: null,
+            );
+          }
+        } on DioException catch (retryError) {
+          debugPrint('Retry failed for $url: ${retryError.message}');
+        }
+      }
       final statusCode = error.response?.statusCode ?? 500;
       debugPrint('Gutendex request failed for $url: ${error.message}');
       debugPrintStack(stackTrace: stackTrace);
