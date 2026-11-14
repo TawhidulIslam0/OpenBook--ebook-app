@@ -2,9 +2,9 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_ebook_app/src/common/common.dart';
 import 'package:flutter_ebook_app/src/features/features.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_ebook_app/src/features/search/presentation/ui/screens/search_screen.dart';
 import 'package:flutter_ebook_app/src/features/library/presentation/ui/screens/library_screen.dart';
+import 'package:flutter_ebook_app/src/features/search/presentation/ui/screens/search_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class HomeScreenSmall extends ConsumerStatefulWidget {
   const HomeScreenSmall({super.key});
@@ -22,10 +22,9 @@ class _HomeScreenSmallState extends ConsumerState<HomeScreenSmall> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(homeFeedNotifierProvider).maybeWhen(
-            orElse: () => loadData(),
-            data: (_) => null,
-          );
+      ref
+          .read(homeFeedNotifierProvider)
+          .maybeWhen(orElse: () => loadData(), data: (_) => null);
     });
   }
 
@@ -34,18 +33,30 @@ class _HomeScreenSmallState extends ConsumerState<HomeScreenSmall> {
     final homeDataState = ref.watch(homeFeedNotifierProvider);
     return Scaffold(
       appBar: AppBar(
-              centerTitle: true,
-              title: const Text(
-                appName,
-                style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.w800),
-              ),
-              actions: [
-                IconButton(tooltip: 'Search books', icon: const Icon(Icons.search),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen()))),
-                IconButton(tooltip: 'My Library', icon: const Icon(Icons.bookmarks_outlined),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen()))),
-              ],
+        centerTitle: true,
+        title: const Text(
+          appName,
+          style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.w800),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Search books',
+            icon: const Icon(Icons.search),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchScreen()),
             ),
+          ),
+          IconButton(
+            tooltip: 'My Library',
+            icon: const Icon(Icons.bookmarks_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LibraryScreen()),
+            ),
+          ),
+        ],
+      ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 500),
         child: homeDataState.maybeWhen(
@@ -73,9 +84,7 @@ class _HomeScreenSmallState extends ConsumerState<HomeScreenSmall> {
             );
           },
           error: (_, __) {
-            return MyErrorWidget(
-              refreshCallBack: () => loadData(),
-            );
+            return MyErrorWidget(refreshCallBack: () => loadData());
           },
         ),
       ),
@@ -97,10 +106,7 @@ class _SectionTitle extends StatelessWidget {
         children: <Widget>[
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 20.0,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -115,28 +121,19 @@ class FeaturedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200.0,
-      child: Center(
-        child: ListView.builder(
-          primary: false,
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          scrollDirection: Axis.horizontal,
-          itemCount: popular.feed?.entry?.length ?? 0,
-          shrinkWrap: true,
-          itemBuilder: (BuildContext context, int index) {
-            final Entry entry = popular.feed!.entry![index];
-            return Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
-              child: BookCard(
-                img: entry.link![1].href!,
-                entry: entry,
-              ),
-            );
-          },
-        ),
-      ),
+    return ListView.builder(
+      primary: false,
+      padding: const EdgeInsets.symmetric(horizontal: 15.0),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: popular.feed?.entry?.length ?? 0,
+      itemBuilder: (BuildContext context, int index) {
+        final Entry entry = popular.feed!.entry![index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 5.0),
+          child: BookListItem(entry: entry),
+        );
+      },
     );
   }
 }
@@ -168,14 +165,10 @@ class _GenreSection extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: context.theme.colorScheme.secondary,
-                  borderRadius: const BorderRadius.all(
-                    Radius.circular(20.0),
-                  ),
+                  borderRadius: const BorderRadius.all(Radius.circular(20.0)),
                 ),
                 child: InkWell(
-                  borderRadius: const BorderRadius.all(
-                    Radius.circular(20.0),
-                  ),
+                  borderRadius: const BorderRadius.all(Radius.circular(20.0)),
                   onTap: () {
                     final route = GenreRoute(
                       title: '${link.title}',
@@ -192,9 +185,7 @@ class _GenreSection extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10.0),
                       child: Text(
                         '${link.title}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                        ),
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ),

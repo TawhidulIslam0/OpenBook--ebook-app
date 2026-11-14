@@ -6,8 +6,9 @@ import 'package:flutter_ebook_app/src/common/common.dart';
 import 'package:flutter_ebook_app/src/features/features.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final exploreFeedProvider =
-    FutureProvider.autoDispose<CategoryFeed>((ref) async {
+final exploreFeedProvider = FutureProvider.autoDispose<CategoryFeed>((
+  ref,
+) async {
   final repository = ref.watch(exploreRepositoryProvider);
   final result = await repository.getGenreFeed(popular);
   if (result.feed == null) {
@@ -41,15 +42,6 @@ class _ExploreScreenSmallState extends ConsumerState<ExploreScreenSmall>
     ref.invalidate(exploreFeedProvider);
   }
 
-  void _startAllGenreFeeds(List<Link> links) {
-    for (final link in links) {
-      final url = link.href;
-      if (url == null || url.isEmpty) continue;
-
-      ref.listen(genreFeedNotifierProvider(url), (previous, next) {});
-    }
-  }
-
   Future<void> _refreshExplore() async {
     loadData();
     try {
@@ -70,9 +62,9 @@ class _ExploreScreenSmallState extends ConsumerState<ExploreScreenSmall>
     setState(() => _surpriseLoading = true);
     try {
       final page = Random().nextInt(12) + 1;
-      final result = await ref.read(exploreRepositoryProvider).getGenreFeed(
-            gutendexBooksUrl(sort: 'popular', page: page),
-          );
+      final result = await ref
+          .read(exploreRepositoryProvider)
+          .getGenreFeed(gutendexBooksUrl(sort: 'popular', page: page));
       final entries = result.feed?.feed?.entry ?? [];
       if (entries.isEmpty) {
         throw result.failure?.description ??
@@ -138,7 +130,6 @@ class _ExploreScreenSmallState extends ConsumerState<ExploreScreenSmall>
         loading: () => const LoadingWidget(),
         data: (feeds) {
           final links = feeds.feed?.link ?? [];
-          _startAllGenreFeeds(links);
           return RefreshIndicator(
             onRefresh: _refreshExplore,
             child: ListView.builder(
@@ -291,8 +282,10 @@ class _SectionBookListState extends ConsumerState<_SectionBookList>
                             horizontal: 5.0,
                             vertical: 10.0,
                           ),
-                          child:
-                              BookCard(img: entry.link![1].href!, entry: entry),
+                          child: BookCard(
+                            img: entry.link![1].href!,
+                            entry: entry,
+                          ),
                         );
                       },
                     );
