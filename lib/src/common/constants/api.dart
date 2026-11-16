@@ -1,0 +1,57 @@
+const String baseURL = 'https://gutendex.com';
+
+String normalizeGutendexSearchQuery(String query) {
+  final trimmed = query.trim();
+  final commaIndex = trimmed.indexOf(',');
+  if (commaIndex < 0) return trimmed;
+
+  final surname = trimmed.substring(0, commaIndex).trim();
+  final givenNames = trimmed.substring(commaIndex + 1).trim();
+  if (surname.isEmpty || givenNames.isEmpty) return trimmed;
+
+  return '$givenNames $surname';
+}
+
+
+/// Produces a stable author key for matching catalog results. It handles both
+/// `Surname, Given names` and `Given names Surname` catalog representations.
+String normalizeGutendexAuthorName(String value) {
+  final normalized = normalizeGutendexSearchQuery(value)
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList()
+    ..sort();
+  return normalized.join(' ');
+}
+
+String gutendexBooksUrl({
+  String? sort,
+  String? topic,
+  String? search,
+  int? page,
+}) {
+  final query = <String, String>{
+    'languages': 'en',
+    'copyright': 'false',
+    if (sort != null && sort != 'popular') 'sort': sort,
+    if (topic != null) 'topic': topic,
+    if (search != null) 'search': normalizeGutendexSearchQuery(search),
+    if (page != null) 'page': '$page',
+  };
+  return Uri.https('gutendex.com', '/books/', query).toString();
+}
+
+final String popular = gutendexBooksUrl(sort: 'popular');
+final String recent = gutendexBooksUrl(sort: 'descending');
+final String shortStory = gutendexBooksUrl(topic: 'short stories');
+final String sciFi = gutendexBooksUrl(topic: 'science fiction');
+final String actionAdventure = gutendexBooksUrl(topic: 'adventure');
+final String mystery = gutendexBooksUrl(topic: 'mystery');
+final String romance = gutendexBooksUrl(topic: 'romance');
+final String horror = gutendexBooksUrl(topic: 'horror');
+final String history = gutendexBooksUrl(topic: 'history');
+final String poetry = gutendexBooksUrl(topic: 'poetry');
+final String children = gutendexBooksUrl(topic: 'children');
+final String drama = gutendexBooksUrl(topic: 'drama');

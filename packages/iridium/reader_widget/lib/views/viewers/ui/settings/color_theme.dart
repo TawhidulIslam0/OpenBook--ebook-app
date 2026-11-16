@@ -1,0 +1,26 @@
+import 'package:flutter/material.dart';
+
+class ColorTheme {
+  static const ColorTheme defaultColorTheme = ColorTheme("Default", null, null);
+  static const ColorTheme sepiaColorTheme =
+      ColorTheme("Sepia", Color(0xfffaf4e8), Color(0xff121212));
+  static const ColorTheme warmColorTheme =
+      ColorTheme("Warm", Color(0xfff5e6c8), Color(0xff3d3024));
+  static const ColorTheme nightColorTheme =
+      ColorTheme("Night", Colors.black, Color(0xfffefefe));
+  static const List<ColorTheme> values = [
+    defaultColorTheme,
+    sepiaColorTheme,
+    warmColorTheme,
+    nightColorTheme,
+  ];
+  final String name;
+  final Color? backgroundColor;
+  final Color? textColor;
+
+  const ColorTheme(this.name, this.backgroundColor, this.textColor);
+
+  @override
+  String toString() =>
+      'ColorTheme{name: $name, backgroundColor: $backgroundColor, textColor: $textColor}';
+}

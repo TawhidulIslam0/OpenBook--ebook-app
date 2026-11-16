@@ -1,0 +1,489 @@
+import 'dart:io';
+
+import 'package:auto_route/auto_route.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_ebook_app/src/common/common.dart';
+import 'package:flutter_ebook_app/src/features/features.dart';
+import 'package:flutter_ebook_app/src/features/library/data/reading_shelf.dart';
+import 'package:flutter_ebook_app/src/features/library/presentation/ui/screens/epub_reader_screen.dart';
+import 'package:flutter_icons/flutter_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+
+@RoutePage()
+class BookDetailsScreen extends ConsumerStatefulWidget {
+  final Entry entry;
+  final String imgTag;
+  final String titleTag;
+  final String authorTag;
+
+  const BookDetailsScreen({
+    super.key,
+    required this.entry,
+    required this.imgTag,
+    required this.titleTag,
+    required this.authorTag,
+  });
+
+  @override
+  ConsumerState<BookDetailsScreen> createState() => _BookDetailsScreenState();
+}
+
+class _BookDetailsScreenState extends ConsumerState<BookDetailsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final autoRouteTopRoute = context.watchRouter.currentChild;
+    final canPop = context.router.canPop();
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: !canPop && autoRouteTopRoute?.name == 'BookDetailsRoute'
+            ? CloseButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              )
+            : null,
+        backgroundColor: context.isSmallScreen ? null : Colors.transparent,
+        actions: <Widget>[
+          ref.watch(favoritesNotifierProvider).maybeWhen(
+                orElse: () => const SizedBox.shrink(),
+                data: (favorites) {
+                  final favorited = favorites.indexWhere(
+                        (element) => element.id!.t == widget.entry.id!.t,
+                      ) !=
+                      -1;
+                  return IconButton(
+                    onPressed: () async {
+                      if (favorited) {
+                        ref
+                            .watch(favoritesNotifierProvider.notifier)
+                            .deleteBook(widget.entry.id!.t ?? '');
+                      } else {
+                        ref
+                            .watch(favoritesNotifierProvider.notifier)
+                            .addBook(widget.entry, widget.entry.id!.t ?? '');
+                      }
+                    },
+                    icon: Icon(
+                      favorited ? Icons.favorite : Feather.heart,
+                      color: favorited
+                          ? Colors.red
+                          : context.theme.iconTheme.color,
+                    ),
+                  );
+                },
+              ),
+          IconButton(
+            onPressed: () => _share(),
+            icon: const Icon(Feather.share),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        children: [
+          const SizedBox(height: 10.0),
+          _BookDescriptionSection(
+            entry: widget.entry,
+            authorTag: widget.authorTag,
+            imgTag: widget.imgTag,
+            titleTag: widget.titleTag,
+          ),
+          const SizedBox(height: 30.0),
+          const _SectionTitle(title: 'Book Description'),
+          const _Divider(),
+          const SizedBox(height: 10.0),
+          DescriptionTextWidget(text: '${widget.entry.summary!.t}'),
+          const SizedBox(height: 30.0),
+          const _SectionTitle(
+            title: 'More from Author',
+          ),
+          const _Divider(),
+          const SizedBox(height: 10.0),
+          _MoreBooksFromAuthor(
+            authorUrl: (widget.entry.author?.uri?.t?.isNotEmpty == true
+                    ? widget.entry.author!.uri!.t!
+                    : gutendexBooksUrl(
+                        search: widget.entry.author?.name?.t ?? '',
+                      ))
+                .replaceAll(r'\&lang=en', ''),
+            entry: widget.entry,
+          ),
+          const SizedBox(height: 30.0),
+        ],
+      ),
+    );
+  }
+
+  void _share() {
+    final title = widget.entry.title?.t ?? 'Untitled';
+    final author = widget.entry.author?.name?.t ?? 'Unknown author';
+    final downloadUrl = epubDownloadUrl(widget.entry);
+    Share.share(
+      '$title by $author'
+      '${downloadUrl == null ? '' : '\nRead/Download $title from $downloadUrl'}',
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(color: context.theme.textTheme.bodySmall!.color);
+  }
+}
+
+class _BookDescriptionSection extends StatelessWidget {
+  final Entry entry;
+  final String imgTag;
+  final String titleTag;
+  final String authorTag;
+
+  const _BookDescriptionSection({
+    required this.entry,
+    required this.imgTag,
+    required this.titleTag,
+    required this.authorTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Hero(
+          tag: imgTag,
+          child: BookCover(
+            entry: entry,
+            imageUrl: '${entry.link![1].href}',
+            height: 200.0,
+            width: 130.0,
+          ),
+        ),
+        const SizedBox(width: 20.0),
+        Flexible(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const SizedBox(height: 5.0),
+              Hero(
+                tag: titleTag,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Text(
+                    entry.title!.t!.replaceAll(r'\', ''),
+                    style: const TextStyle(
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5.0),
+              Hero(
+                tag: authorTag,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Text(
+                    '${entry.author!.name!.t}',
+                    style: const TextStyle(
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5.0),
+              _CategoryChips(entry: entry),
+              _DownloadButton(entry: entry),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryChips extends StatelessWidget {
+  final Entry entry;
+
+  const _CategoryChips({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entry.category == null) {
+      return const SizedBox.shrink();
+    } else {
+      return Wrap(
+        children: [
+          ...entry.category!.map((category) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(0.0, 5.0, 5.0, 5.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: const BorderRadius.all(Radius.circular(20)),
+                  border: Border.all(
+                    color: context.theme.colorScheme.secondary,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7.0,
+                    vertical: 5,
+                  ),
+                  child: Text(
+                    '${category.label}',
+                    style: TextStyle(
+                      color: context.theme.colorScheme.secondary,
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      );
+    }
+  }
+}
+
+class _DownloadButton extends ConsumerWidget {
+  final Entry entry;
+
+  const _DownloadButton({required this.entry});
+
+  String get id => entry.id!.t.toString();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final downloads = ref.watch(downloadsNotifierProvider);
+    final downloadedBook = downloads.maybeWhen(
+      data: (books) {
+        for (final book in books) {
+          if (book['id'] == id) return book;
+        }
+        return null;
+      },
+      orElse: () => null,
+    );
+    final downloadUrl = epubDownloadUrl(entry);
+    final hasDownloadedFile = downloadedBook?['path'] is String;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (downloadUrl != null || hasDownloadedFile)
+          TextButton.icon(
+            onPressed: () {
+              // Always pass directly to the reader screen without checking local disk path
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => ReadBookScreen(
+                    id: id,
+                    title: entry.title!.t ?? 'Book',
+                    url: downloadUrl ?? '',
+                    author: entry.author?.name?.t ?? 'Unknown author',
+                    localPath: downloadedBook?['path'] as String?,
+                  ),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            icon: const Icon(Icons.menu_book_outlined),
+            label: const Text('Read in app'),
+          ),
+        if (downloadUrl != null)
+          TextButton.icon(
+            onPressed: () => _downloadBook(context, downloadUrl),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            icon: const Icon(Icons.download_outlined),
+            label: const Text('Download'),
+          ),
+        if (downloadUrl == null && !hasDownloadedFile)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('No EPUB download is available for this book.'),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _downloadBook(BuildContext context, String downloadUrl) async {
+    await DownloadAlert.show(
+      context: context,
+      url: downloadUrl,
+      name: entry.title!.t ?? '',
+      image: '${entry.link![1].href}',
+      id: id,
+    );
+  }
+
+  Future<void> openBook(
+    String path,
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final bookFile = File(path);
+    if (bookFile.existsSync()) {
+      await ReadingShelf.record(
+        id: id,
+        title: entry.title?.t ?? 'Book',
+        author: entry.author?.name?.t ?? 'Unknown author',
+        cover: entry.link!.length > 1 ? entry.link![1].href ?? '' : '',
+        url: entry.link!.length > 3 ? entry.link![3].href ?? '' : '',
+        path: path,
+      );
+      if (!context.mounted) return;
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => EpubReaderScreen(bookId: id, filePath: path),
+        ),
+      );
+    } else {
+      context.showSnackBarUsingText(
+        'Could not find the book file. Please download it again.',
+      );
+      ref.read(downloadsNotifierProvider.notifier).deleteBook(id);
+    }
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+
+  const _SectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: context.theme.colorScheme.secondary,
+        fontSize: 20.0,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}
+
+class _MoreBooksFromAuthor extends ConsumerStatefulWidget {
+  final String authorUrl;
+  final Entry entry;
+
+  const _MoreBooksFromAuthor({
+    required this.authorUrl,
+    required this.entry,
+  });
+
+  @override
+  ConsumerState<_MoreBooksFromAuthor> createState() =>
+      _MoreBooksFromAuthorState();
+}
+
+class _MoreBooksFromAuthorState extends ConsumerState<_MoreBooksFromAuthor> {
+  @override
+  Widget build(BuildContext context) {
+    final authorName = widget.entry.author?.name?.t ?? '';
+    if (authorName.trim().isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Text('Author information is unavailable for this book.'),
+      );
+    }
+    final normalizedAuthor = normalizeGutendexAuthorName(authorName);
+    final cachedEntries = BookRepository.findCachedEntries(authorName)
+        .where(
+          (entry) =>
+              normalizeGutendexAuthorName(entry.author?.name?.t ?? '') ==
+              normalizedAuthor,
+        )
+        .where((entry) => entry.id?.t != widget.entry.id?.t)
+        .toList();
+
+    return ref.watch(bookDetailsNotifierProvider(widget.authorUrl)).maybeWhen(
+          orElse: () => const SizedBox.shrink(),
+          loading: () => cachedEntries.isEmpty
+              ? const LoadingWidget()
+              : Column(
+                  children: [
+                    const LinearProgressIndicator(),
+                    _buildBooks(cachedEntries),
+                  ],
+                ),
+          data: (related) {
+            final entriesById = <String, Entry>{};
+            for (final Entry entry in cachedEntries) {
+              final id = entry.id?.t;
+              if (id != null) entriesById[id] = entry;
+            }
+            final List<Entry> remoteEntries = related.feed?.entry ?? [];
+            for (final entry in remoteEntries) {
+              final id = entry.id?.t;
+              final sameAuthor = normalizeGutendexAuthorName(
+                    entry.author?.name?.t ?? '',
+                  ) ==
+                  normalizedAuthor;
+              if (id != null && id != widget.entry.id?.t && sameAuthor) {
+                entriesById[id] = entry;
+              }
+            }
+            final entries = entriesById.values.toList();
+            if (entries.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 50.0),
+                  child: Text(
+                    'No other books by this author were found.',
+                  ),
+                ),
+              );
+            }
+            return _buildBooks(entries);
+          },
+          error: (error, _) {
+            if (cachedEntries.isNotEmpty) {
+              return Column(
+                children: [
+                  Text(
+                    'Could not refresh recommendations. Showing saved books.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  _buildBooks(cachedEntries),
+                ],
+              );
+            }
+            return MyErrorWidget(
+              message: error.toString(),
+              refreshCallBack: () => ref
+                  .read(bookDetailsNotifierProvider(widget.authorUrl).notifier)
+                  .fetch(),
+            );
+          },
+        );
+  }
+
+  Widget _buildBooks(List<Entry> entries) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: entries.length,
+      itemBuilder: (BuildContext context, int index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5.0),
+          child: BookListItem(entry: entries[index]),
+        );
+      },
+    );
+  }
+}
