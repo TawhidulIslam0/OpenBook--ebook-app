@@ -26,6 +26,30 @@ void main() {
     expect(receiveTimeout, const Duration(seconds: 30));
   });
 
+  test('allows recently added books more time to load', () async {
+    Duration? receiveTimeout;
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            receiveTimeout = options.receiveTimeout;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: {'results': []},
+              ),
+            );
+          },
+        ),
+      );
+
+    await _TestBookRepository(dio).getCategory(
+      'https://gutendex.com/books/?languages=en&copyright=false&sort=descending',
+    );
+
+    expect(receiveTimeout, const Duration(seconds: 60));
+  });
+
   test('does not replace a failed genre response with cached matches',
       () async {
     var requestCount = 0;

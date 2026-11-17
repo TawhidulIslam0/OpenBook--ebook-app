@@ -44,6 +44,7 @@ class _CachedBookFeed {
 abstract class BookRepository {
   static const _cacheDuration = Duration(minutes: 5);
   static const _catalogRequestTimeout = Duration(seconds: 30);
+  static const _recentFeedRequestTimeout = Duration(seconds: 60);
   static const _maximumCachedFeeds = 50;
   static final Map<String, _CachedBookFeed> _feedCache = {};
   static final Map<String, Future<BookRepositoryData>> _pendingRequests = {};
@@ -139,6 +140,9 @@ abstract class BookRepository {
     try {
       return await _fetchCategoryWithRetry(
         url,
+        requestTimeout: sourceQuery['sort'] == 'descending'
+            ? _recentFeedRequestTimeout
+            : _catalogRequestTimeout,
         languages: languages,
         copyright: copyright,
         includePaginationLink: isTopicRequest,
@@ -184,6 +188,7 @@ abstract class BookRepository {
 
   Future<BookRepositoryData> _fetchCategoryWithRetry(
     String url, {
+    required Duration requestTimeout,
     required List<String> languages,
     required bool? copyright,
     required bool includePaginationLink,
@@ -192,8 +197,8 @@ abstract class BookRepository {
       final res = await httpClient.get(
         url,
         options: Options(
-          sendTimeout: _catalogRequestTimeout,
-          receiveTimeout: _catalogRequestTimeout,
+          sendTimeout: requestTimeout,
+          receiveTimeout: requestTimeout,
         ),
       );
       return _parseCategoryResponse(
@@ -215,8 +220,8 @@ abstract class BookRepository {
           final retry = await httpClient.get(
             url,
             options: Options(
-              sendTimeout: _catalogRequestTimeout,
-              receiveTimeout: _catalogRequestTimeout,
+              sendTimeout: requestTimeout,
+              receiveTimeout: requestTimeout,
             ),
           );
           return _parseCategoryResponse(
